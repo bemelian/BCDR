@@ -10,11 +10,13 @@ from skimage import exposure
 import numpy as np
 import scipy.misc
 import imageio
+from PIL import Image
+
 OPTIM = RMSprop()
 
-img_name = 'card.jpg'
+img_name = 'img/card.jpg'
 
-img = np.transpose(scipy.misc.imresize(imageio.imread(img_name), (540, 855)), (0, 1, 2))
+img = np.transpose(Image.fromarray(imageio.imread(img_name)).resize((855, 540), Image.LANCZOS), (0, 1, 2))
 img = rgb2gray(img)
 
 '''
@@ -26,12 +28,13 @@ img = rgb2gray(img)
 th = img > threshold_otsu(img)
 for i in range(540):
     for j in range(855):
-        if th[i][j]:
+        if th:
             img[i][j] = 1
         else:
             img[i][j] = 0
-imageio.imwrite('cardtest.jpg', img)
 '''
+imageio.imwrite('img/cardtest.jpg', img)
+
 
 # СЕГМЕНТАЦИЯ ЦИФР НОМЕРА КАРТЫ
 imgtest = np.zeros((16, 50, 40))
@@ -47,18 +50,9 @@ for a in range(4):
 
 imgs = np.zeros((16, 20, 20))
 for i in range(16):
-    imgs[i] = scipy.misc.imresize(imgtest[i], (20, 20), interp='lanczos', mode='L')
-    #  imageio.imwrite('cardtestnum' + str(i) + '.jpg', imgs[i])
+    imgs[i] = Image.fromarray(imgtest[i]).resize((20, 20), Image.LANCZOS)
+    imageio.imwrite('img/cardtestnum' + str(i) + '.jpg', imgs[i])
 
-th = img > threshold_local(img, 31, method='mean')
-for i in range(540):
-    for j in range(855):
-        if th[i][j]:
-            img[i][j] = 255
-        else:
-            img[i][j] = 0
-
-imageio.imwrite('cardtest.jpg', img)
 '''
 # СЕГМЕНТАЦИЯ БУКВ ИМЕНИ ДЕРЖАТЕЛЯ КАРТЫ 4374
 th = img > threshold_local(img, 31, method='mean')
@@ -69,7 +63,7 @@ for i in range(540):
         else:
             img[i][j] = 0
 
-imageio.imwrite('cardtest.jpg', img)
+imageio.imwrite('img/cardtest.jpg', img)
 
 imgtest1 = np.zeros((14, 40, 25))
 for a in range(7):
@@ -92,6 +86,13 @@ for a in range(7, 14):
 '''
 
 # СЕГМЕНТАЦИЯ БУКВ ИМЕНИ ДЕРЖАТЕЛЯ КАРТЫ 7217
+th = img > threshold_local(img, 31, method='mean')
+for i in range(540):
+    for j in range(855):
+        if th[i][j]:
+            img[i][j] = 1
+        else:
+            img[i][j] = 0
 
 imgtest1 = np.zeros((14, 36, 22))
 for a in range(7):
@@ -111,10 +112,18 @@ for a in range(7, 14):
             imgtest1[a][ii][jj] = img[i][j]
             jj += 1
         ii += 1
+
 imgs1 = np.zeros((14, 20, 20))
-for i in range(14):
-    imgs1[i] = scipy.misc.imresize(imgtest1[i], (20, 20), interp='lanczos', mode='L')
-    imageio.imwrite('cardtestnum' + str(i) + '.jpg', imgs1[i])
+for a in range(14):
+    imgs1[a] = Image.fromarray(imgtest1[a]).resize((20, 20), Image.LANCZOS)
+    # th = imgs1[a] > threshold_otsu(imgs1[a])
+    # for i in range(20):
+    #     for j in range(20):
+    #         if th[i][j]:
+    #             imgs1[a][i][j] = 1
+    #         else:
+    #             imgs1[a][i][j] = 0
+    imageio.imwrite('img/cardtestnum' + str(a) + '.jpg', imgs1[a])
 
 # РАСПОЗНАВАНИЕ НОМЕРА КАРТЫ
 imgs = imgs.reshape(16, 20, 20, 1)
@@ -124,21 +133,6 @@ model.compile(loss='categorical_crossentropy', optimizer=OPTIM, metrics=['accura
 predictions = model.predict_classes(imgs)
 print(predictions)
 
-'''
-imgs1 = np.zeros((14, 20, 20))
-train = open("ocrb.csv").read()
-train = train.split("\n")[1:-1]  # Разделение файла на строки
-train = [i.split(",") for i in train]  # Разделение строк на слова
-x = np.array([[int(i[j]) for j in range(12, len(i))] for i in train])  # Массив без вспомогательных данных
-X_train = np.zeros((len(x), 20, 20))
-X_train = x.reshape(len(x), 20, 20)
-X_train = X_train.reshape(X_train.shape[0], 20, 20, 1)
-X_train = X_train.astype("float32")
-X_train /= 255
-for i in range(14):
-    imgs1[i] = X_train[i].reshape(20, 20)
-    imageio.imwrite('cardtestnum' + str(i) + '.jpg', imgs1[i])
-'''
 # РАСПОЗНАВАНИЕ ИМЕНИ ДЕРЖАТЕЛЯ КАРТЫ
 imgs1 = imgs1.reshape(14, 20, 20, 1)
 model1 = load_model('LetRec.h5')
